@@ -1,18 +1,16 @@
 use battleship::board::{self, Board, Shot};
-use battleship::data::{self, ShipSpec};
+use battleship::data::{self, ScoreRecord, ShipSpec};
 use battleship::ui;
 use rand::SeedableRng;
 use rand::rngs::StdRng;
 
 const FLEET_PATH: &str = "data/fleet.txt";
-// TODO (Task 6): add SCORES_PATH ("data/scores.txt").
-// TODO (Task 8): add PRACTICE_PATH ("data/boards/practice.txt").
+const SCORES_PATH: &str = "data/scores.txt";
+const PRACTICE_PATH: &str = "data/boards/practice.txt";
 const TOP_N: usize = 5;
 
 fn main() {
-    // TODO (Task 5): replace default_fleet() with data::load_fleet(FLEET_PATH),
-    // then delete default_fleet from data.rs.
-    let fleet = data::default_fleet();
+    let fleet = data::load_fleet(FLEET_PATH);
     if fleet.is_empty() {
         println!("No fleet loaded. Check {FLEET_PATH}.");
         return;
@@ -39,12 +37,16 @@ fn main() {
 
 // Print the best scores, highest first, or a message if there are none.
 fn show_top_scores(n: usize) {
-    // TODO (Task 9): load the scores; print "TOP n"; if there are none print
-    // "  no scores yet"; otherwise sort with data::sort_scores_desc and print up
-    // to n lines like
-    //  1. Ana              83
+    let mut records = data::load_scores(SCORES_PATH);
     println!("TOP {n}");
-    println!("  (high scores are not shown yet)");
+    if records.is_empty() {
+        println!("  no scores yet");
+        return;
+    }
+    data::sort_scores_desc(&mut records);
+    for i in 0..records.len().min(n) {
+        println!("{:>2}. {:<15} {:>4}", i + 1, records[i].name, records[i].score);
+    }
 }
 
 // A scored game against a randomly placed fleet.
@@ -58,19 +60,28 @@ fn play_game(fleet: &[ShipSpec]) {
     if let Some(shots) = play_round(&mut board) {
         let score = board::score_for(shots);
         println!("All ships sunk in {shots} shots. Score: {score}");
-        // TODO (Task 10): if score > 0, ask for a name with ui::prompt, build a
-        // ScoreRecord (add it to the `use` line), and save it with
-        // data::append_score. Print "Score saved." only when it returns true.
+        if score > 0 {
+            let name = ui::prompt("Name for the high-score list: ");
+            if !name.is_empty() {
+                let record = ScoreRecord { name, score };
+                if data::append_score(SCORES_PATH, &record) {
+                    println!("Score saved.");
+                }
+            }
+        }
     }
 }
 
 // An unscored game on the fixed layout in the practice file.
 fn practice_game() {
-    // TODO (Task 8): load the board with data::load_board(PRACTICE_PATH). On
-    // Some(mut board), play it with play_round and print
-    // "Practice board cleared in N shots." when play_round returns Some(N).
-    // On None, print "Practice board unavailable."
-    println!("Practice mode is not available yet.");
+    match data::load_board(PRACTICE_PATH) {
+        Some(mut board) => {
+            if let Some(shots) = play_round(&mut board) {
+                println!("Practice board cleared in {shots} shots.");
+            }
+        }
+        None => println!("Practice board unavailable."),
+    }
 }
 
 // Fire until every ship is sunk. Returns the number of shots, or None if the

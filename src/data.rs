@@ -1,5 +1,8 @@
 // Loading and saving game data.
-use crate::board::Board;
+use crate::board::{Board, Cell, SIZE, new_board};
+use std::fs;
+use std::fs::OpenOptions;
+use std::io::Write;
 
 pub const MIN_SHIP: usize = 2;
 pub const MAX_SHIP: usize = 5;
@@ -61,8 +64,27 @@ pub fn sort_scores_desc(records: &mut Vec<ScoreRecord>) {
 // Return None unless the line has exactly one comma, a non-empty trimmed name,
 // and a length that parses as a number from MIN_SHIP to MAX_SHIP.
 // Model it on parse_score above.
-pub fn parse_ship_line(_line: &str) -> Option<ShipSpec> {
-    todo!("Task 1: parse_ship_line")
+pub fn parse_ship_line(line: &str) -> Option<ShipSpec> {
+    let parts: Vec<&str> = line.trim().split(',').collect();
+    if parts.len() != 2 {
+        return None;
+    }
+    let name = parts[0].trim();
+    if name.is_empty() {
+        return None;
+    }
+    match parts[1].trim().parse::<usize>() {
+        Ok(length) => {
+            if length < MIN_SHIP || length > MAX_SHIP {
+                return None;
+            }
+            Some(ShipSpec {
+                name: name.to_string(),
+                length,
+            })
+        }
+        Err(_) => None,
+    }
 }
 
 // Task 2.
@@ -72,8 +94,30 @@ pub fn parse_ship_line(_line: &str) -> Option<ShipSpec> {
 //     Skipped N invalid line(s) in <path>
 // to stderr (eprintln!). If the file cannot be read, print the error to
 // stderr and return an empty Vec.
-pub fn load_fleet(_path: &str) -> Vec<ShipSpec> {
-    todo!("Task 2: load_fleet")
+pub fn load_fleet(path: &str) -> Vec<ShipSpec> {
+    let text = match fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(e) => {
+            eprintln!("Could not read {path}: {e}");
+            return Vec::new();
+        }
+    };
+    let mut fleet = Vec::new();
+    let mut skipped = 0;
+    for line in text.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        match parse_ship_line(line) {
+            Some(ship) => fleet.push(ship),
+            None => skipped += 1,
+        }
+    }
+    if skipped > 0 {
+        eprintln!("Skipped {skipped} invalid line(s) in {path}");
+    }
+    fleet
 }
 
 // Task 3.
@@ -82,15 +126,54 @@ pub fn load_fleet(_path: &str) -> Vec<ShipSpec> {
 // starting with '#' are ignored. Return None for too few rows, too many rows,
 // a row of the wrong width, or any other character.
 // Start from board::new_board() and fill in board[row][col].
-pub fn parse_board(_text: &str) -> Option<Board> {
-    todo!("Task 3: parse_board")
+pub fn parse_board(text: &str) -> Option<Board> {
+    let mut board = new_board();
+    let mut row = 0;
+    for line in text.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        if row >= SIZE {
+            return None;
+        }
+        let chars: Vec<char> = line.chars().collect();
+        if chars.len() != SIZE {
+            return None;
+        }
+        for col in 0..SIZE {
+            board[row][col] = match chars[col] {
+                '.' => Cell::Water,
+                'S' => Cell::Ship,
+                _ => return None,
+            };
+        }
+        row += 1;
+    }
+    if row != SIZE {
+        return None;
+    }
+    Some(board)
 }
 
 // Task 4.
 // Read the file at path and parse it with parse_board. On a read error, or if
 // parse_board returns None, print a message to stderr and return None.
-pub fn load_board(_path: &str) -> Option<Board> {
-    todo!("Task 4: load_board")
+pub fn load_board(path: &str) -> Option<Board> {
+    let text = match fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(e) => {
+            eprintln!("Could not read {path}: {e}");
+            return None;
+        }
+    };
+    match parse_board(&text) {
+        Some(board) => Some(board),
+        None => {
+            eprintln!("{path} is not a valid board file");
+            None
+        }
+    }
 }
 
 // Task 6.
@@ -98,28 +181,38 @@ pub fn load_board(_path: &str) -> Option<Board> {
 // Replace commas in the name with spaces so the line stays parseable.
 // Return true if the write succeeded; on failure print the error to stderr
 // and return false.
-pub fn append_score(_path: &str, _record: &ScoreRecord) -> bool {
-    todo!("Task 6: append_score")
+pub fn append_score(path: &str, record: &ScoreRecord) -> bool {
+    let name = record.name.replace(',', " ");
+    let mut file = match OpenOptions::new().create(true).append(true).open(path) {
+        Ok(file) => file,
+        Err(e) => {
+            eprintln!("Could not open {path}: {e}");
+            return false;
+        }
+    };
+    match writeln!(file, "{},{}", name, record.score) {
+        Ok(()) => true,
+        Err(e) => {
+            eprintln!("Could not write to {path}: {e}");
+            false
+        }
+    }
 }
 
 // Task 7.
 // Read every valid score line from path. A missing file is normal on the
 // first run: return an empty Vec and print nothing. Skip lines that
 // parse_score rejects.
-pub fn load_scores(_path: &str) -> Vec<ScoreRecord> {
-    todo!("Task 7: load_scores")
-}
-
-// TEMPORARY: lets the game run before load_fleet works.
-// Task 5 replaces the call in main.rs; then delete this function.
-pub fn default_fleet() -> Vec<ShipSpec> {
-    let lengths = [5, 4, 3, 3, 2];
-    let mut fleet = Vec::new();
-    for length in lengths {
-        fleet.push(ShipSpec {
-            name: format!("Ship{length}"),
-            length,
-        });
+pub fn load_scores(path: &str) -> Vec<ScoreRecord> {
+    let mut records = Vec::new();
+    let text = match fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(_) => return records,
+    };
+    for line in text.lines() {
+        if let Some(record) = parse_score(line) {
+            records.push(record);
+        }
     }
-    fleet
+    records
 }
