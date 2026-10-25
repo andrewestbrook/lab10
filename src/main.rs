@@ -1,5 +1,5 @@
 use battleship::board::{self, Board, Shot};
-use battleship::data::{self, ShipSpec};
+use battleship::data::{self, ScoreRecord, ShipSpec};
 use battleship::ui;
 use rand::SeedableRng;
 use rand::rngs::StdRng;
@@ -60,9 +60,15 @@ fn play_game(fleet: &[ShipSpec]) {
     if let Some(shots) = play_round(&mut board) {
         let score = board::score_for(shots);
         println!("All ships sunk in {shots} shots. Score: {score}");
-        // TODO (Task 10): if score > 0, ask for a name with ui::prompt, build a
-        // ScoreRecord (add it to the `use` line), and save it with
-        // data::append_score. Print "Score saved." only when it returns true.
+        if score > 0 {
+            let name = ui::prompt("Name for the high-score list: ");
+            if !name.is_empty() {
+                let record = ScoreRecord { name, score };
+                if data::append_score(SCORES_PATH, &record) {
+                    println!("Score saved.");
+                }
+            }
+        }
     }
 }
 
