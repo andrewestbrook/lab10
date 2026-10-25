@@ -5,7 +5,7 @@ use rand::SeedableRng;
 use rand::rngs::StdRng;
 
 const FLEET_PATH: &str = "data/fleet.txt";
-// TODO (Task 6): add SCORES_PATH ("data/scores.txt").
+const SCORES_PATH: &str = "data/scores.txt";
 const PRACTICE_PATH: &str = "data/boards/practice.txt";
 const TOP_N: usize = 5;
 
@@ -37,12 +37,16 @@ fn main() {
 
 // Print the best scores, highest first, or a message if there are none.
 fn show_top_scores(n: usize) {
-    // TODO (Task 9): load the scores; print "TOP n"; if there are none print
-    // "  no scores yet"; otherwise sort with data::sort_scores_desc and print up
-    // to n lines like
-    //  1. Ana              83
+    let mut records = data::load_scores(SCORES_PATH);
     println!("TOP {n}");
-    println!("  (high scores are not shown yet)");
+    if records.is_empty() {
+        println!("  no scores yet");
+        return;
+    }
+    data::sort_scores_desc(&mut records);
+    for i in 0..records.len().min(n) {
+        println!("{:>2}. {:<15} {:>4}", i + 1, records[i].name, records[i].score);
+    }
 }
 
 // A scored game against a randomly placed fleet.
