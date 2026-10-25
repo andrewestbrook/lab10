@@ -157,8 +157,21 @@ pub fn parse_board(text: &str) -> Option<Board> {
 // Task 4.
 // Read the file at path and parse it with parse_board. On a read error, or if
 // parse_board returns None, print a message to stderr and return None.
-pub fn load_board(_path: &str) -> Option<Board> {
-    todo!("Task 4: load_board")
+pub fn load_board(path: &str) -> Option<Board> {
+    let text = match fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(e) => {
+            eprintln!("Could not read {path}: {e}");
+            return None;
+        }
+    };
+    match parse_board(&text) {
+        Some(board) => Some(board),
+        None => {
+            eprintln!("{path} is not a valid board file");
+            None
+        }
+    }
 }
 
 // Task 6.
