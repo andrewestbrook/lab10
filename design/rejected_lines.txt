@@ -1,0 +1,14 @@
+Lines in data/fleet.txt rejected by parse_ship_line
+(load_fleet prints: Skipped 3 invalid line(s) in data/fleet.txt)
+
+1. Tugboat,1
+   Reason: the length 1 is too short. Ship lengths must be from MIN_SHIP (2) to MAX_SHIP (5).
+
+2. Dinghy,x
+   Reason: the length "x" is not a number, so it does not parse as a usize.
+
+3. Flagship
+   Reason: there is no comma, so the line splits into one part instead of exactly two (name,length).
+
+Not counted as invalid: the blank line and the lines starting with '#' are comments/blank
+and are skipped silently.
